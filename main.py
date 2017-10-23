@@ -12,10 +12,11 @@
         mysqlclient
 
 '''
-
+import sys
 import requests
 from bs4 import BeautifulSoup
 import MySQLdb
+import ConfigParser
 
 gasTypeDict = {
     u'９２無鉛':'92',
@@ -27,6 +28,15 @@ gasTypeDict = {
     u'酒精汽油':'alcohol',
     u'超級柴油':'diesel',
     u'LPG價格':'lpg' }
+
+def parseConfig( configPath ):
+    cp = ConfigParser.ConfigParser()
+    cp.read( configPath )
+    global host, uid, pwd, port
+    host = cp.get( 'db', 'host' )
+    uid = cp.get( 'db', 'uid' )
+    pwd = cp.get( 'db', 'pwd' )
+    port = cp.get( 'db', 'port' )
 
 '''
     CPC
@@ -65,5 +75,8 @@ def crawlFPCC():
 
 
 if __name__ == '__main__':
+    if len(sys.argv) < 2: 
+        print 'too few argument, missing config.ini'
+
     crawlCPC()
     crawlFPCC()
