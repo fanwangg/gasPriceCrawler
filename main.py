@@ -29,14 +29,36 @@ gasTypeDict = {
     u'超級柴油':'diesel',
     u'LPG價格':'lpg' }
 
-def parseConfig( configPath ):
-    cp = ConfigParser.ConfigParser()
-    cp.read( configPath )
-    global host, uid, pwd, port
-    host = cp.get( 'db', 'host' )
-    uid = cp.get( 'db', 'uid' )
-    pwd = cp.get( 'db', 'pwd' )
-    port = cp.get( 'db', 'port' )
+class sql:
+    def __init__( self, configPath):
+        self.parseConfig( configPath )
+        self.connectDB()
+
+    def parseConfig( self, configPath ):
+        cp = ConfigParser.ConfigParser()
+        cp.read( configPath )
+        self.host = cp.get( 'db', 'host' )
+        self.uid = cp.get( 'db', 'uid' )
+        self.pwd = cp.get( 'db', 'pwd' )
+        self.port = cp.get( 'db', 'port' )
+        self.dbname = 'gaspricesql'
+
+    def connectDB( self ):
+        self.connection = MySQLdb.connect(
+            host = self.host,
+            user = self.uid,
+            passwd = self.pwd,
+            db = self.dbname)   
+    
+    def insertDB( self, query ):
+        cur = self.connection.cursor()
+        cur.execute( query )
+
+        for row in cur.fetchall():
+            print row
+
+    def disconnectDB():
+        self.connection.close()
 
 '''
     CPC
@@ -73,10 +95,10 @@ def crawlFPCC():
         curPrice = gasPriceInstance.find("p",class_="pricing").text.replace(u'$',u'')
         print curName,curPrice
 
-
 if __name__ == '__main__':
     if len(sys.argv) < 2: 
         print 'too few argument, missing config.ini'
 
-    crawlCPC()
-    crawlFPCC()
+    db = sql( sys.argv[1] )
+    #crawlCPC()
+    #crawlFPCC()
