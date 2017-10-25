@@ -10,7 +10,6 @@
         requests
         beautifulsoup4
         mysqlclient
-
 '''
 import sys
 import requests
@@ -29,7 +28,13 @@ gasTypeDict = {
     u'超級柴油':'diesel',
     u'LPG價格':'lpg' }
 
-class sql:
+class GasPriceEntity:
+    def __init__( self, supplier, gasType, price):
+        self.supplier = supplier
+        self.gasType = gasType
+        self.price = price
+
+class Sql:
     def __init__( self, configPath):
         self.parseConfig( configPath )
         self.connectDB()
@@ -49,56 +54,73 @@ class sql:
             user = self.uid,
             passwd = self.pwd,
             db = self.dbname)   
-    
-    def insertDB( self, query ):
-        cur = self.connection.cursor()
-        cur.execute( query )
 
-        for row in cur.fetchall():
+    def executeQuery( self, query ):
+        self.cur = self.connection.cursor()
+        self.cur.execute( query )
+
+    def insertData( self, priceEntity ):
+        query = 'INSERT INTO gas VALUES (NOW(), 1, \'{0}\', \'{1}\', \'{2}\')'.format( priceEntity.supplier, priceEntity.gasType, priceEntity.price)
+        self.executeQuery( query )
+        self.connection.commit()
+
+    def showData( self ):
+        query = 'SELECT * FROM gas'
+        self.executeQuery( query )
+        for row in self.cur.fetchall():
             print row
 
-    def disconnectDB():
+    def disconnectDB( self ):
         self.connection.close()
 
-'''
+class Crawler:
+    def __init__( self, configPath ):
+        self.db = Sql( configPath )
+
+    '''
     CPC
-'''
-def crawlCPC():
-    c_CPC_baseUrl = "http://new.cpc.com.tw/Home"
-    c_CPC_gasPriceId = "OilPrice2"
+    '''
+    def updateCPC( self ):
+        c_CPC_baseUrl = "http://new.cpc.com.tw/Home"
+        c_CPC_gasPriceId = "OilPrice2"
 
-    r  = requests.get(c_CPC_baseUrl)
-    data = r.text
-    soup = BeautifulSoup(data,"html.parser")
+        r  = requests.get(c_CPC_baseUrl)
+        data = r.text
+        soup = BeautifulSoup(data,"html.parser")
 
-    for gasPriceInstance in soup.find( id=c_CPC_gasPriceId ).find_all( "dd" ):
-        curName = gasPriceInstance.text.split(u'\xa0')[0]
-        curName = gasTypeDict[curName]
-        curPrice = gasPriceInstance.find("strong").text
-        print curName, curPrice
+        for gasPriceInstance in soup.find( id=c_CPC_gasPriceId ).find_all( "dd" ):
+            curType = gasPriceInstance.text.split(u'\xa0')[0]
+            curType = gasTypeDict[curType]
+            curPrice = gasPriceInstance.find("strong").text
+            p = GasPriceEntity( 'CPC', curType, curPrice )
+            self.db.insertData( p )
 
-'''
-    FPCC
-'''
-def crawlFPCC():
-    c_FPCC_baseUrl = "http://www.fpcc.com.tw/tc/affiliate.php"
-    c_FPCC_gasPriceId = "GasPrice3"
-    r = requests.get(c_FPCC_baseUrl)
-    data = r.text
-    soup = BeautifulSoup(data,"html.parser")
+    '''
+        FPCC
+    '''
+    def updateFPCC( self ):
+        c_FPCC_baseUrl = "http://www.fpcc.com.tw/tc/affiliate.php"
+        c_FPCC_gasPriceId = "GasPrice3"
+        r = requests.get(c_FPCC_baseUrl)
+        data = r.text
+        soup = BeautifulSoup(data,"html.parser")
 
-    for gasClassName in ["GasPrice1", "GasPrice2", "GasPrice3", "GasPrice4"] :
-        gasPriceInstance = soup.find("div",class_=gasClassName)
-        titleSpan = gasPriceInstance.find("span",class_="gas_l")
-        curName = titleSpan.text if titleSpan else u'超級柴油'
-        curName = gasTypeDict[curName]
-        curPrice = gasPriceInstance.find("p",class_="pricing").text.replace(u'$',u'')
-        print curName,curPrice
+        for gasClassName in ["GasPrice1", "GasPrice2", "GasPrice3", "GasPrice4"] :
+            gasPriceInstance = soup.find("div",class_=gasClassName)
+            titleSpan = gasPriceInstance.find("span",class_="gas_l")
+            curType = titleSpan.text if titleSpan else u'超級柴油'
+            curType = gasTypeDict[curType]
+            curPrice = gasPriceInstance.find("p",class_="pricing").text.replace(u'$',u'')
+            p = GasPriceEntity( 'FPCC', curType, curPrice )
+            self.db.insertData( p )
 
 if __name__ == '__main__':
     if len(sys.argv) < 2: 
         print 'too few argument, missing config.ini'
 
-    db = sql( sys.argv[1] )
-    #crawlCPC()
-    #crawlFPCC()
+    crawler = Crawler( sys.argv[1] )
+    crawler.updateCPC()
+    crawler.updateFPCC()
+
+    #crawler.db.showData()
+    crawler.db.disconnectDB()
