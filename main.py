@@ -16,6 +16,7 @@ import requests
 from bs4 import BeautifulSoup
 import MySQLdb
 import ConfigParser
+from datetime import datetime
 
 gasTypeDict = {
     u'９２無鉛':'92',
@@ -53,14 +54,15 @@ class Sql:
             host = self.host,
             user = self.uid,
             passwd = self.pwd,
-            db = self.dbname)   
+            db = self.dbname )   
 
     def executeQuery( self, query ):
         self.cur = self.connection.cursor()
         self.cur.execute( query )
 
     def insertData( self, priceEntity ):
-        query = 'INSERT INTO gas VALUES (NOW(), 1, \'{0}\', \'{1}\', \'{2}\')'.format( priceEntity.supplier, priceEntity.gasType, priceEntity.price)
+        today = datetime.today()
+        query = 'INSERT INTO gas VALUES (NOW(), \'{0}\', \'{1}\', \'{2}\', \'{3}\')'.format( today.strftime("%U"), priceEntity.supplier, priceEntity.gasType, priceEntity.price)
         self.executeQuery( query )
         self.connection.commit()
 
